@@ -6,41 +6,45 @@ from typing import List, Dict, Tuple
 from pathlib import Path
 import time
 import argparse
+from collections import deque
+
+DIRECTIONS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
 
 # bfs算法步骤：1初始化队列（加入起点）2从头部取出元素 3判断是否end，end则在parent里面统计长度 4不是end将可行邻居添加到队列
 # 如果parent长度等于矩阵大小则说明没有路径
-def get_neighbors(pos: Tuple[int, int], maze: List[List[str]]) -> List[Tuple[int, int]]:
+def get_neighbors(pos: Tuple[int, int], maze: List[List[str]], rows: int, cols: int) -> List[Tuple[int, int]]:
     neighbors = []
     directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  # 右、左、下、上
     for dx, dy in directions:
         new_x, new_y = pos[0] + dx, pos[1] + dy
-        if 0 <= new_x < len(maze) and 0 <= new_y < len(maze[0]) and maze[new_x][new_y] != '#':
+        if 0 <= new_x < rows and 0 <= new_y < cols and maze[new_x][new_y] != '#':
             neighbors.append((new_x, new_y))
     return neighbors
 
-def BFS(maze: List[List[str]], start: Tuple[int, int], end: Tuple[int, int]):
+def BFS(maze: List[List[str]], start: Tuple[int, int], end: Tuple[int, int], rows: int, cols: int):
     path_exist=False
-    q = queue.Queue()
-    q.put(start)
+    q = deque()
+    q.append(start)
     parent = {start: None}
     visited = set()
     visited.add(start)
-    start_time = time.time()
+    start_time = time.perf_counter()
 
-    while not q.empty():
-        current = q.get()
+    while q:
+        current = q.popleft()
         if current == end:
             path_exist = True
             break
 
-        for neighbor in get_neighbors(current, maze):
+        for neighbor in get_neighbors(current, maze, rows, cols):
             if neighbor not in visited:
                 visited.add(neighbor)
                 parent[neighbor] = current
-                q.put(neighbor)
+                q.append(neighbor)
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
+    end_time = time.perf_counter()
+    elapsed_time = round((end_time - start_time) * 1000, 4)
+
     if path_exist:
         length = 0
         while current is not None:
@@ -51,20 +55,71 @@ def BFS(maze: List[List[str]], start: Tuple[int, int], end: Tuple[int, int]):
         length = -1 # no path
 
     expanded_states = len(visited)
-    
-    return path_exist, length, expanded_states, elapsed_time
+
+    return {"path_exist": path_exist, "length": length, "expanded_states": expanded_states, "elapsed_time": elapsed_time}
 
 
+# A* algorithm: 1初始化堆（g，node）由于h=0且步长都是1所以等价宽搜 2从堆中取出元素 3判断是否end 4将邻居添加到堆
+def a_star_0(maze: List[List[str]], start: Tuple[int, int], end: Tuple[int, int], rows: int, cols: int):
+    path_exist = False
+    OPEN = []
+    heapq.heappush(OPEN, (0, start))
+    CLOSED = {}
+    start_time = time.perf_counter()
 
-# A* algorithm: 1初始化堆（加入起点）
-def a_star_0(start: list) -> int:
+    while OPEN:
+        g, current = heapq.heappop(OPEN)
+        CLOSED[current] = g
+        if current == end:
+            path_exist = True
+            break
+
+        for neighbor in get_neighbors(current, maze, rows, cols):
+            if neighbor not in CLOSED:
+                heapq.heappush(OPEN, (g + 1, neighbor))
+    end_time = time.perf_counter()
+    elapsed_time = round((end_time - start_time) * 1000, 4)
+    if path_exist:
+        length = CLOSED[end]
+    else:
+        length = -1
+    expanded_states = len(CLOSED)
+    return {"path_exist": path_exist, "length": length, "expanded_states": expanded_states, "elapsed_time": elapsed_time}
+
     
-    return path_exist, length, expanded_states, time
-    
-            
-def a_star_1(start: list) -> int:
-    
-    return path_exist, length, expanded_states, time
+
+def heuristic(pos: Tuple[int, int], end: Tuple[int, int]) -> float:
+    h = abs(pos[0] - end[0]) + abs(pos[1] - end[1])
+    return h
+
+
+def a_star_1(maze: List[List[str]], start: Tuple[int, int], end: Tuple[int, int], rows: int, cols: int):
+    path_exist = False
+    OPEN = []
+    h_start = heuristic(start, end)
+    heapq.heappush(OPEN, (h_start, 0, start))
+    CLOSED = {}
+    start_time = time.perf_counter()
+
+    while OPEN:
+        f, g, current = heapq.heappop(OPEN)
+        CLOSED[current] = g
+        if current == end:
+            path_exist = True
+            break
+
+        for neighbor in get_neighbors(current, maze, rows, cols):
+            if neighbor not in CLOSED:
+                h_neighbor = heuristic(neighbor, end)
+                heapq.heappush(OPEN, (g + 1 + h_neighbor, g + 1, neighbor))
+    end_time = time.perf_counter()
+    elapsed_time = round((end_time - start_time) * 1000, 4)
+    if path_exist:
+        length = CLOSED[end]
+    else:
+        length = -1
+    expanded_states = len(CLOSED)
+    return {"path_exist": path_exist, "length": length, "expanded_states": expanded_states, "elapsed_time": elapsed_time}
 
 def read_maze_linebyline():
     n, m = map(int, sys.stdin.readline().split())
@@ -80,7 +135,7 @@ def read_maze_linebyline():
             elif cell == 'T':
                 end = (i, j)
 
-    return maze, start, end
+    return maze, start, end, n, m
 
 def read_maze_from_file(filename):
     maze = []
@@ -100,22 +155,28 @@ def read_maze_from_file(filename):
                 elif cell == 'T':
                     end = (i, j)
     
-    return maze, start, end
+    return maze, start, end, n, m
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--linebyline', action='store_true', help='Read maze line by line from stdin')
-    parser.add_argument('--file', type=str, help='Read maze from a file')
+    parser.add_argument('-l', '--line', action='store_true', help='Read maze line by line from stdin')
+    parser.add_argument('-f', '--file', type=str, help='Read maze from a file')
+    parser.add_argument('-a', '--algorithm', type=str, choices=['bfs', 'a_star_0', 'a_star_1'], default='a_star_1', help='Choose the algorithm to run')
     args = parser.parse_args()
 
-    if args.linebyline:
-        maze, start, end = read_maze_linebyline()
+    if args.line:
+        maze, start, end, rows, cols = read_maze_linebyline()
     elif args.file:
-        maze, start, end = read_maze_from_file(args.file)
-    
+        maze, start, end, rows, cols = read_maze_from_file(args.file) 
     else:
-        print("Please specify an input method: --linebyline or --file <filename>")
+        print("Please specify an input method: --line or --file <filename>")
         sys.exit(1)
     
-    BFS_result = BFS(maze, start, end)
-    print("BFS:", BFS_result)
+    if args.algorithm == 'bfs':
+        result = BFS(maze, start, end, rows, cols)
+    elif args.algorithm == 'a_star_0':
+        result = a_star_0(maze, start, end, rows, cols)
+    elif args.algorithm == 'a_star_1':
+        result = a_star_1(maze, start, end, rows, cols)
+
+    print(f"{args.algorithm.upper()}: {result}")
