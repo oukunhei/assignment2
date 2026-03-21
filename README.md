@@ -29,7 +29,7 @@ PowerShell (Windows):
 python .\assignment2.py --line --algorithm A*
 ```
 
-Then paste input in this format (see **Input format** below), and press `Ctrl+Z` then `Enter` to end input.
+Then paste input in this format (see **Input format** below), and press `Enter` to end input.
 
 ### Option B: run with an input file
 
@@ -43,10 +43,8 @@ python .\assignment2.py --file .\maze1.in --algorithm BFS
 python .\assignment2.py --file "C:\\path\\to\\maze.in" --algorithm A*
 ```
 
-#### Important note about paths (for submission)
+#### Important note about paths
 
-- Only `assignment2.py` and `README.md` are submitted.
-- Input files (e.g., `maze1.in`) are **not** submitted, so during grading the input file will likely be in a **different path**.
 - To avoid path issues, either:
 	- use **stdin mode** (`--line`) and paste the test case, or
 	- place the input file in the **same directory** as `assignment2.py` and run with `--file .\\your_maze.in`, or
@@ -79,7 +77,7 @@ Example:
 
 ## Output
 
-The program prints one line like:
+The program prints outputs like:
 
 ```text
 [A*] 
